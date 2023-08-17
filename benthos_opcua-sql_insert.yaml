@@ -1,0 +1,127 @@
+# http:
+#   enabled: true
+#   address: 0.0.0.0:4195
+#   root_path: /benthos
+#   debug_endpoints: true
+#   cert_file: ""
+#   key_file: ""
+#   cors:
+#     enabled: false
+#     allowed_origins: []
+#   basic_auth:
+#     enabled: false
+#     realm: restricted
+#     username: ""
+#     password_hash: ""
+#     algorithm: sha256
+#     salt: ""
+input:
+  broker:
+    inputs:
+      - label: "simulated_device_1"
+        opcua:
+          endpoint: "opc.tcp://127.0.0.1:12673/plc4x"
+          nodeIDs: ['ns=1;s=Simulated Device'] # ['ns=1;s=Simulated_INT', 'ns=1;s=Simulated_LINT']
+      # - label: "simulated_device_2"
+      #   opcua:
+      #     endpoint: "opc.tcp://127.0.0.1:12673/plc4x"
+      #     nodeIDs: ['ns=1;s=Simulated_WORD', 'ns=1;s=Simulated_DINT']
+buffer:
+  none: {}
+pipeline:
+  threads: -1
+  processors:
+    - label: "add_metadata"
+      bloblang: |
+        root = {
+          "timestamp_unix": timestamp_unix(),
+          "path": meta("opcua_path"),
+          "source": meta("opcua_endpoint"),
+          "value": this
+        }
+    - catch:
+      - mapping: 'root = meta("opcua_endpoint") + ":" + meta("opcua_path") + ":" + content().string()'
+      - log:
+          message: 'Cannot process ${! content() }'
+output:
+  label: ""
+  broker:
+    pattern: fan_out
+    outputs:  
+      - fallback:
+        - sql_insert:
+            driver: "sqlite"
+            dsn: "file:/home/rva/energinet/opcua/benthos-umh-fork/justtesting.db"
+            table: "opcua2"
+            columns: [processed_at, path, value]
+            args_mapping: root = [ this.timestamp_unix, this.path, this.value ]
+            prefix: ""
+            suffix: ""
+            max_in_flight: 1
+        #    conn_max_idle_time: ""
+        #    conn_max_life_time: ""
+            conn_max_idle: 0
+            conn_max_open: 0
+            batching:
+              count: 0
+              byte_size: 0
+              period: ""
+              check: ""
+              processors: []
+        - file:
+            path: /tmp/benthos-everything-failed-sqlite.jsonl
+      # - fallback:
+      #   - sql_insert:
+      #       driver: "postgres"
+      #       dsn: "postgres://postgres:password@localhost:5432/opcua?sslmode=disable"
+      #       table: "metrics"
+      #       columns: [time, device, location, value]
+      #       args_mapping: root = [ meta("opcua_source_timestamp"), this.source, this.path, this.value ]
+      #       prefix: ""
+      #       suffix: ""
+      #       max_in_flight: 64
+      #   #    conn_max_idle_time: ""
+      #   #    conn_max_life_time: ""
+      #       conn_max_idle: 0
+      #       conn_max_open: 0
+      #       batching:
+      #         count: 0
+      #         byte_size: 0
+      #         period: ""
+      #         check: ""
+      #         processors: []
+      #   - file:
+      #       path: /tmp/benthos-everything-failed-postgres.jsonl
+      # - stdout:
+      #     codec: lines
+logger:
+  level: INFO
+  format: logfmt
+  add_timestamp: false
+  timestamp_name: time
+  message_name: msg
+  static_fields:
+    '@service': benthos
+  file:
+    path: ""
+    rotate: false
+    rotate_max_age_days: 0
+metrics:
+  prometheus:
+    use_histogram_timing: false
+    histogram_buckets: []
+    add_process_metrics: false
+    add_go_metrics: false
+    push_url: ""
+    push_interval: ""
+    push_job_name: benthos_push
+    push_basic_auth:
+      username: ""
+      password: ""
+    file_output_path: ""
+  mapping: ""
+tracer:
+  none: {}
+shutdown_delay: ""
+shutdown_timeout: 20s
+
