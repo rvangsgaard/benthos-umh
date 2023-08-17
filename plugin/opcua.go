@@ -86,7 +86,13 @@ func browse(ctx context.Context, n *opcua.Node, path string, level int, logger *
 
 	switch err := attrs[2].Status; err {
 	case ua.StatusOK:
-		def.Description = attrs[2].Value.String()
+		if attrs[2].Value == nil {
+			// ignore, sometimes the Description is not present.
+			// For example a lot of nodes on Open UA servers opc.tcp://opcua.demo-this.com:51210/UA/SampleServer
+			// does not have a Description.
+		} else {
+			def.Description = attrs[2].Value.String()
+		}
 	case ua.StatusBadAttributeIDInvalid:
 		// ignore
 	default:
