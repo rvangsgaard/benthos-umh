@@ -391,6 +391,14 @@ func (g *OPCUAInput) ReadBatch(ctx context.Context) (service.MessageBatch, servi
 
 		message.MetaSet("opcua_path", opcuaPath)
 
+		message.MetaSet("opcua_endpoint", g.endpoint)
+
+		sourceTimestamp := resp.Results[i].SourceTimestamp.Format(time.RFC3339Nano)
+		message.MetaSet("opcua_source_timestamp", sourceTimestamp)
+
+		serverTimestamp := resp.Results[i].ServerTimestamp.Format(time.RFC3339Nano)
+		message.MetaSet("opcua_server_timestamp", serverTimestamp)
+
 		msgs = append(msgs, message)
 	}
 
