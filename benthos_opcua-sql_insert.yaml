@@ -35,12 +35,12 @@ pipeline:
       bloblang: |
         root = {
           "timestamp_unix": timestamp_unix(),
-          "path": meta("opcua_path"),
-          "source": meta("opcua_endpoint"),
+          "path": @opcua_path,
+          "source": @opcua_endpoint,
           "value": this
         }
     - catch:
-      - mapping: 'root = meta("opcua_endpoint") + ":" + meta("opcua_path") + ":" + content().string()'
+      - mapping: 'root = @opcua_endpoint + ":" + @opcua_path + ":" + content().string()'
       - log:
           message: 'Cannot process ${! content() }'
 output:
